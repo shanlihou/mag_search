@@ -18,7 +18,7 @@ class SearchResult {
       children: [
         Container(
             margin: EdgeInsets.only(right: 1.w),
-            width: 60.w,
+            width: 40.w,
             child: Text(title,
                 maxLines: 1,
                 style: TextStyle(
@@ -30,11 +30,15 @@ class SearchResult {
             width: 20.w,
             margin: const EdgeInsets.only(right: 10),
             child: Text(size,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
                     color: Colors.black))),
         Text(date,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,

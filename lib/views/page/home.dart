@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:easy_refresh/easy_refresh.dart';
 
 import '../../common/utils_widget.dart';
 import '../../net/search.dart';
@@ -14,23 +15,79 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
-  List<SearchResult> _searchResults = []; // 这里可以根据实际数据模型修改类型
+  List<SearchResult> _searchResults = [];
   String? _searchPageUrl;
+  bool _isLoading = false;
+  int _currentPage = 1;
+  final _easyRefreshController = EasyRefreshController(
+    controlFinishLoad: true,
+  );
 
-  void _performSearch(String query) async {
-    setState(() {
-      _searchResults.clear();
-    });
+  @override
+  void dispose() {
+    _easyRefreshController.dispose();
+    super.dispose();
+  }
 
-    _searchPageUrl ??= await fetchSearchPageUrl();
+  void _performSearch(String query, {bool isLoadMore = false}) async {
+    if (_isLoading) return;
 
-    if (_searchPageUrl == null) {
-      return;
+    if (!isLoadMore) {
+      _currentPage = 1;
+      setState(() {
+        _searchResults.clear();
+      });
     }
 
-    _searchResults = await fetchSearchResult(_searchPageUrl!, query);
+    setState(() {
+      _isLoading = true;
+    });
 
-    setState(() {});
+    if (!isLoadMore) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        },
+      );
+    }
+
+    try {
+      _searchPageUrl ??= await fetchSearchPageUrl();
+
+      if (_searchPageUrl == null) {
+        return;
+      }
+
+      final newResults =
+          await fetchSearchResult(_searchPageUrl!, query, _currentPage);
+
+      setState(() {
+        if (isLoadMore) {
+          _searchResults.addAll(newResults);
+          _currentPage++;
+        } else {
+          _searchResults = newResults;
+          _currentPage = 2;
+        }
+      });
+
+      _easyRefreshController.finishLoad(
+        newResults.isEmpty ? IndicatorResult.noMore : IndicatorResult.success,
+      );
+    } catch (e) {
+      print(e);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+      if (!isLoadMore) {
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   void _onTapSearchResult(SearchResult searchResult) async {
@@ -82,20 +139,29 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              onSubmitted: _performSearch,
+              onSubmitted: (query) => _performSearch(query),
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: _searchResults.length,
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: _searchResults[index].toWidget(),
-                  onTap: () {
-                    _onTapSearchResult(_searchResults[index]);
-                  },
-                );
+            child: EasyRefresh(
+              controller: _easyRefreshController,
+              onLoad: () async {
+                if (_searchController.text.isNotEmpty) {
+                  print('onLoad');
+                  _performSearch(_searchController.text, isLoadMore: true);
+                }
               },
+              child: ListView.builder(
+                itemCount: _searchResults.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: _searchResults[index].toWidget(),
+                    onTap: () {
+                      _onTapSearchResult(_searchResults[index]);
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ],

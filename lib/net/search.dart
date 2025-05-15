@@ -19,9 +19,15 @@ Future<String?> fetchSearchPageUrl() async {
   return null;
 }
 
-Future<List<SearchResult>> fetchSearchResult(String url, String keyword) async {
+Future<List<SearchResult>> fetchSearchResult(
+    String url, String keyword, int page) async {
   final dio = Dio();
-  final searchUrl = '$url/search/${Uri.encodeComponent(keyword)}';
+  String searchUrl;
+  if (page == 1) {
+    searchUrl = '$url/search/${Uri.encodeComponent(keyword)}';
+  } else {
+    searchUrl = '$url/search/${Uri.encodeComponent(keyword)}/page/$page';
+  }
   var response = await dio.get(searchUrl);
 
   // var box = await Hive.openBox<HttpCache>('httpCache');
