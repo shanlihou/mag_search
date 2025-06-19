@@ -24,9 +24,8 @@ Future<String?> showSearchResultDialog(
           child: Text('Close'),
         ),
         TextButton(
-          onPressed: () async {
-            final mag = await copyMagToClipboard(searchResult.url);
-            Navigator.pop(context, mag);
+          onPressed: () {
+            Navigator.pop(context, searchResult.url);
           },
           child: Text('Download'),
         ),
