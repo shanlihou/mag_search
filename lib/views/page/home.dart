@@ -5,10 +5,12 @@ import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../common/log.dart';
 import '../../common/utils_widget.dart';
+import '../../common/size_parser.dart';
 import '../../net/search.dart';
 import '../../types/search_result.dart';
 import '../../models/db/search_history.dart';
 import '../../models/db/search_history_service.dart';
+import '../widgets/search_filter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,10 +23,16 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   final SearchHistoryService _searchHistoryService = SearchHistoryService();
   List<SearchResult> _searchResults = [];
+  List<SearchResult> _filteredResults = [];
   List<SearchHistory> _searchHistory = [];
   String? _searchPageUrl;
   bool _isLoading = false;
   bool _showHistory = false;
+  bool _showFilter = false;
+  bool _isFilterActive = false;
+  String? _minSize;
+  String? _maxSize;
+  String? _titleKeyword;
   int _currentPage = 1;
   final _easyRefreshController = EasyRefreshController(
     controlFinishLoad: true,
@@ -61,6 +69,7 @@ class _HomePageState extends State<HomePage> {
       _currentPage = 1;
       setState(() {
         _searchResults.clear();
+        _filteredResults.clear();
         _showHistory = false;
       });
 
@@ -76,15 +85,17 @@ class _HomePageState extends State<HomePage> {
     });
 
     if (!isLoadMore) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        },
-      );
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          },
+        );
+      }
     }
 
     try {
@@ -97,15 +108,20 @@ class _HomePageState extends State<HomePage> {
       final newResults =
           await fetchSearchResult(_searchPageUrl!, query, _currentPage);
 
-      setState(() {
-        if (isLoadMore) {
-          _searchResults.addAll(newResults);
-          _currentPage++;
-        } else {
-          _searchResults = newResults;
-          _currentPage = 2;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          if (isLoadMore) {
+            _searchResults.addAll(newResults);
+            _currentPage++;
+          } else {
+            _searchResults = newResults;
+            _currentPage = 2;
+          }
+        });
+
+        // Apply filter to new results
+        _applyFilter();
+      }
 
       _easyRefreshController.finishLoad(
         newResults.isEmpty ? IndicatorResult.noMore : IndicatorResult.success,
@@ -113,13 +129,86 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       Log.instance.e('perform search error: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
-      if (!isLoadMore) {
-        Navigator.of(context).pop();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        if (!isLoadMore) {
+          Navigator.of(context).pop();
+        }
       }
     }
+  }
+
+  void _onFilterChanged(
+      String? minSize, String? maxSize, String? titleKeyword) {
+    setState(() {
+      _minSize = minSize;
+      _maxSize = maxSize;
+      _titleKeyword = titleKeyword;
+      _isFilterActive =
+          minSize != null || maxSize != null || titleKeyword != null;
+    });
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    if (!_isFilterActive) {
+      setState(() {
+        _filteredResults = List.from(_searchResults);
+      });
+      return;
+    }
+
+    setState(() {
+      _filteredResults = _searchResults.where((result) {
+        // Size filter
+        if (_minSize != null || _maxSize != null) {
+          final sizeInBytes = SizeParser.parseSize(result.size);
+          if (sizeInBytes == null) return false;
+
+          if (_minSize != null) {
+            final minSizeInBytes = SizeParser.parseSize(_minSize!);
+            if (minSizeInBytes == null || sizeInBytes < minSizeInBytes) {
+              return false;
+            }
+          }
+
+          if (_maxSize != null) {
+            final maxSizeInBytes = SizeParser.parseSize(_maxSize!);
+            if (maxSizeInBytes == null || sizeInBytes > maxSizeInBytes) {
+              return false;
+            }
+          }
+        }
+
+        // Title filter
+        if (_titleKeyword != null && _titleKeyword!.isNotEmpty) {
+          final title = result.title.toLowerCase();
+          final keyword = _titleKeyword!.toLowerCase();
+
+          // Check if any word in the title matches the keyword
+          final titleWords = title.split(RegExp(r'\s+'));
+          final keywordWords = keyword.split(RegExp(r'\s+'));
+
+          bool hasMatch = false;
+          for (final titleWord in titleWords) {
+            for (final keywordWord in keywordWords) {
+              if (titleWord.contains(keywordWord) ||
+                  keywordWord.contains(titleWord)) {
+                hasMatch = true;
+                break;
+              }
+            }
+            if (hasMatch) break;
+          }
+
+          if (!hasMatch) return false;
+        }
+
+        return true;
+      }).toList();
+    });
   }
 
   void _onTapSearchResult(SearchResult searchResult) async {
@@ -133,9 +222,11 @@ class _HomePageState extends State<HomePage> {
     if (mag != null) {
       try {
         Clipboard.setData(ClipboardData(text: mag));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Magnet link copied to clipboard')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Magnet link copied to clipboard')),
+          );
+        }
       } catch (e) {
         Log.instance.e('copy magnet link to clipboard error: $e');
       }
@@ -248,6 +339,7 @@ class _HomePageState extends State<HomePage> {
                             _searchController.clear();
                             setState(() {
                               _searchResults.clear();
+                              _filteredResults.clear();
                               _showHistory = false;
                             });
                           },
@@ -266,6 +358,7 @@ class _HomePageState extends State<HomePage> {
                     if (_searchHistory.isNotEmpty) {
                       setState(() {
                         _showHistory = true;
+                        _showFilter = false;
                       });
                     }
                   },
@@ -278,7 +371,7 @@ class _HomePageState extends State<HomePage> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -315,6 +408,53 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _showFilter = !_showFilter;
+                            _showHistory = false;
+                          });
+                        },
+                        icon: Icon(_showFilter
+                            ? Icons.expand_less
+                            : Icons.expand_more),
+                        label:
+                            Text(_showFilter ? 'Hide Filter' : 'Show Filter'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              _isFilterActive ? Colors.blue[100] : null,
+                        ),
+                      ),
+                    ),
+                    if (_isFilterActive)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_filteredResults.length}/${_searchResults.length}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                  ],
+                ),
+                if (_showFilter)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: SearchFilter(
+                      onFilterChanged: _onFilterChanged,
+                      isActive: _isFilterActive,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -323,6 +463,7 @@ class _HomePageState extends State<HomePage> {
               onTap: () {
                 setState(() {
                   _showHistory = false;
+                  _showFilter = false;
                 });
               },
               child: EasyRefresh(
@@ -334,13 +475,13 @@ class _HomePageState extends State<HomePage> {
                   }
                 },
                 child: ListView.builder(
-                  itemCount: _searchResults.length,
+                  itemCount: _filteredResults.length,
                   itemBuilder: (context, index) {
-                    return ListTile(
-                      title: _searchResults[index].toWidget(),
+                    return GestureDetector(
                       onTap: () {
-                        _onTapSearchResult(_searchResults[index]);
+                        _onTapSearchResult(_filteredResults[index]);
                       },
+                      child: _filteredResults[index].toWidget(),
                     );
                   },
                 ),
