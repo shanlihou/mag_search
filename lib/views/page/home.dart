@@ -10,6 +10,8 @@ import '../../net/search.dart';
 import '../../types/search_result.dart';
 import '../../models/db/search_history.dart';
 import '../../models/db/search_history_service.dart';
+import '../../models/db/download_history.dart';
+import '../../models/db/download_history_service.dart';
 import '../widgets/search_filter.dart';
 
 class HomePage extends StatefulWidget {
@@ -22,9 +24,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   final SearchHistoryService _searchHistoryService = SearchHistoryService();
+  final DownloadHistoryService _downloadHistoryService =
+      DownloadHistoryService();
   List<SearchResult> _searchResults = [];
   List<SearchResult> _filteredResults = [];
   List<SearchHistory> _searchHistory = [];
+  Map<String, bool> _downloadStatus = {};
   String? _searchPageUrl;
   bool _isLoading = false;
   bool _showHistory = false;
@@ -41,24 +46,37 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _initSearchHistory();
+    _initServices();
   }
 
   @override
   void dispose() {
     _easyRefreshController.dispose();
     _searchHistoryService.close();
+    _downloadHistoryService.close();
     super.dispose();
   }
 
-  Future<void> _initSearchHistory() async {
+  Future<void> _initServices() async {
     await _searchHistoryService.init();
+    await _downloadHistoryService.init();
     _loadSearchHistory();
   }
 
   void _loadSearchHistory() {
     setState(() {
       _searchHistory = _searchHistoryService.getAllHistory();
+    });
+  }
+
+  Future<void> _loadDownloadStatus() async {
+    final statusMap = <String, bool>{};
+    for (final result in _searchResults) {
+      statusMap[result.url] =
+          await _downloadHistoryService.hasDownloaded(result.url);
+    }
+    setState(() {
+      _downloadStatus = statusMap;
     });
   }
 
@@ -70,6 +88,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _searchResults.clear();
         _filteredResults.clear();
+        _downloadStatus.clear();
         _showHistory = false;
       });
 
@@ -118,6 +137,9 @@ class _HomePageState extends State<HomePage> {
             _currentPage = 2;
           }
         });
+
+        // Load download status for new results
+        await _loadDownloadStatus();
 
         // Apply filter to new results
         _applyFilter();
@@ -222,6 +244,16 @@ class _HomePageState extends State<HomePage> {
     if (mag != null) {
       try {
         Clipboard.setData(ClipboardData(text: mag));
+
+        // Record download history
+        await _downloadHistoryService.addDownloadRecord(
+            url, searchResult.title);
+
+        // Update download status
+        setState(() {
+          _downloadStatus[searchResult.url] = true;
+        });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Magnet link copied to clipboard')),
@@ -340,6 +372,7 @@ class _HomePageState extends State<HomePage> {
                             setState(() {
                               _searchResults.clear();
                               _filteredResults.clear();
+                              _downloadStatus.clear();
                               _showHistory = false;
                             });
                           },
@@ -477,11 +510,14 @@ class _HomePageState extends State<HomePage> {
                 child: ListView.builder(
                   itemCount: _filteredResults.length,
                   itemBuilder: (context, index) {
+                    final result = _filteredResults[index];
+                    final isDownloaded = _downloadStatus[result.url] ?? false;
+
                     return GestureDetector(
                       onTap: () {
-                        _onTapSearchResult(_filteredResults[index]);
+                        _onTapSearchResult(result);
                       },
-                      child: _filteredResults[index].toWidget(),
+                      child: result.toWidget(isDownloaded: isDownloaded),
                     );
                   },
                 ),

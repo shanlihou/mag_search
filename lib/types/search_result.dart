@@ -13,7 +13,7 @@ class SearchResult {
       required this.size,
       required this.date});
 
-  Widget toWidget() {
+  Widget toWidget({bool isDownloaded = false}) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       padding: const EdgeInsets.all(12),
@@ -28,8 +28,10 @@ class SearchResult {
           ),
         ],
         border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.2),
-          width: 1,
+          color: isDownloaded
+              ? Colors.green.withValues(alpha: 0.3)
+              : Colors.grey.withValues(alpha: 0.2),
+          width: isDownloaded ? 2 : 1,
         ),
       ),
       child: Column(
@@ -115,21 +117,53 @@ class SearchResult {
 
               const Spacer(),
 
-              // Download icon
+              // Download icon with status
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: isDownloaded
+                      ? Colors.green.withValues(alpha: 0.1)
+                      : Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  Icons.download,
+                  isDownloaded ? Icons.check_circle : Icons.download,
                   size: 16.sp,
-                  color: Colors.orange[700],
+                  color: isDownloaded ? Colors.green[700] : Colors.orange[700],
                 ),
               ),
             ],
           ),
+
+          // Download status indicator
+          if (isDownloaded)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 12.sp,
+                    color: Colors.green[700],
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Downloaded',
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

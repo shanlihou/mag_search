@@ -5,6 +5,7 @@ import 'package:sizer/sizer.dart';
 
 import 'models/db/http_cache.dart';
 import 'models/db/search_history.dart';
+import 'models/db/download_history.dart';
 import 'views/page/home.dart';
 
 void main() async {
@@ -14,6 +15,7 @@ void main() async {
   Hive.init(path.path);
   Hive.registerAdapter(HttpCacheAdapter());
   Hive.registerAdapter(SearchHistoryAdapter());
+  Hive.registerAdapter(DownloadHistoryAdapter());
   runApp(const MyApp());
 }
 
