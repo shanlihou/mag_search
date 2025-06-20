@@ -182,6 +182,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     setState(() {
+      final keyword = _titleKeyword!.toLowerCase();
       _filteredResults = _searchResults.where((result) {
         // Size filter
         if (_minSize != null || _maxSize != null) {
@@ -206,25 +207,10 @@ class _HomePageState extends State<HomePage> {
         // Title filter
         if (_titleKeyword != null && _titleKeyword!.isNotEmpty) {
           final title = result.title.toLowerCase();
-          final keyword = _titleKeyword!.toLowerCase();
 
-          // Check if any word in the title matches the keyword
-          final titleWords = title.split(RegExp(r'\s+'));
-          final keywordWords = keyword.split(RegExp(r'\s+'));
-
-          bool hasMatch = false;
-          for (final titleWord in titleWords) {
-            for (final keywordWord in keywordWords) {
-              if (titleWord.contains(keywordWord) ||
-                  keywordWord.contains(titleWord)) {
-                hasMatch = true;
-                break;
-              }
-            }
-            if (hasMatch) break;
+          if (!title.contains(keyword)) {
+            return false;
           }
-
-          if (!hasMatch) return false;
         }
 
         return true;
