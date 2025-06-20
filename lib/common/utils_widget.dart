@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../net/search.dart';
 import '../types/search_result.dart';
 
 Future<String?> showSearchResultDialog(

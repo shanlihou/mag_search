@@ -10,7 +10,6 @@ import '../../net/search.dart';
 import '../../types/search_result.dart';
 import '../../models/db/search_history.dart';
 import '../../models/db/search_history_service.dart';
-import '../../models/db/download_history.dart';
 import '../../models/db/download_history_service.dart';
 import '../widgets/search_filter.dart';
 
@@ -486,6 +485,9 @@ class _HomePageState extends State<HomePage> {
                     child: SearchFilter(
                       onFilterChanged: _onFilterChanged,
                       isActive: _isFilterActive,
+                      currentMinSize: _minSize,
+                      currentMaxSize: _maxSize,
+                      currentTitleKeyword: _titleKeyword,
                     ),
                   ),
               ],
@@ -503,8 +505,10 @@ class _HomePageState extends State<HomePage> {
                 controller: _easyRefreshController,
                 onLoad: () async {
                   if (_searchController.text.isNotEmpty) {
-                    Log.instance.i('onLoad');
-                    _performSearch(_searchController.text, isLoadMore: true);
+                    Log.instance.i('onLoad $_showFilter');
+                    if (!_showFilter) {
+                      _performSearch(_searchController.text, isLoadMore: true);
+                    }
                   }
                 },
                 child: ListView.builder(

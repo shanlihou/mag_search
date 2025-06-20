@@ -4,11 +4,17 @@ class SearchFilter extends StatefulWidget {
   final Function(String? minSize, String? maxSize, String? titleKeyword)
       onFilterChanged;
   final bool isActive;
+  final String? currentMinSize;
+  final String? currentMaxSize;
+  final String? currentTitleKeyword;
 
   const SearchFilter({
     super.key,
     required this.onFilterChanged,
     this.isActive = false,
+    this.currentMinSize,
+    this.currentMaxSize,
+    this.currentTitleKeyword,
   });
 
   @override
@@ -25,6 +31,31 @@ class _SearchFilterState extends State<SearchFilter> {
   void initState() {
     super.initState();
     _isActive = widget.isActive;
+    _updateControllers();
+  }
+
+  @override
+  void didUpdateWidget(SearchFilter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _isActive = widget.isActive;
+    _updateControllers();
+  }
+
+  void _updateControllers() {
+    // Update min size controller
+    if (widget.currentMinSize != _minSizeController.text) {
+      _minSizeController.text = widget.currentMinSize ?? '';
+    }
+
+    // Update max size controller
+    if (widget.currentMaxSize != _maxSizeController.text) {
+      _maxSizeController.text = widget.currentMaxSize ?? '';
+    }
+
+    // Update title keyword controller
+    if (widget.currentTitleKeyword != _titleKeywordController.text) {
+      _titleKeywordController.text = widget.currentTitleKeyword ?? '';
+    }
   }
 
   @override
