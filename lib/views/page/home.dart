@@ -494,6 +494,9 @@ class _HomePageState extends State<HomePage> {
                     Log.instance.i('onLoad $_showFilter');
                     if (!_showFilter) {
                       _performSearch(_searchController.text, isLoadMore: true);
+                    } else {
+                      _easyRefreshController
+                          .finishLoad(IndicatorResult.success);
                     }
                   }
                 },
